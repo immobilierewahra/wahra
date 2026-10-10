@@ -1,6 +1,6 @@
 """Build the soundtrack: synthesized ambient music bed + sound design + processed voice-over.
 
-python3 audio.py -> build/mix.wav
+python3 audio.py -> build/mix.wav   (VIDEO_VARIANT=30s -> build/30s/mix.wav)
 """
 import math
 import os
@@ -12,9 +12,10 @@ import soundfile as sf
 from scipy.signal import butter, fftconvolve, resample_poly, sosfilt
 
 import timeline as T
+from render import CONFIG, endcard_pace
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-BUILD = os.path.join(HERE, "build")
+BUILD = T.BUILD
 SR = 48000
 TARGET_LUFS = -15.0
 rng = np.random.default_rng(3)
@@ -64,7 +65,7 @@ CHORDS = [  # (bass, pad voicing, arp notes)  D - Bm - G - A
     (43, [54, 57, 59, 62], [67, 71, 74, 78]),
     (45, [52, 57, 59, 64], [64, 69, 71, 76]),
 ]
-BPM = 84
+BPM = T.settings().get("bpm", 84)
 BEAT = 60 / BPM
 BAR = 4 * BEAT
 
@@ -225,42 +226,49 @@ def scan_sweep(dur=1.6):
 def sfx(total, tl):
     N = int(total * SR) + SR
     fx = np.zeros((N, 2))
-    cue = tl["cues"]
+    R = tl["roles"]
     # intro: riser into the letterbox opening, boom + chime on the emblem
     add(fx, whoosh(1.1, 0.85, up=True), -0.2, 0.35)
-    add(fx, boom(), 0.62, 0.55)
-    add(fx, chime(1318.5), 0.98, 0.16)
-    add(fx, chime(1760.0, 2.0), T.at(cue[0], "راقية") + 0.4, 0.07)
+    k = min(1.0, tl["cues"][0]["start"] / 1.3)
+    add(fx, boom(), 0.62 * k, 0.55)
+    add(fx, chime(1318.5), 0.98 * k, 0.16)
+    add(fx, chime(1760.0, 2.0), R["intro"]["shine"], 0.07)
     # transitions
     for k, b in enumerate(tl["transitions"]):
-        add(fx, whoosh(0.9, 0.62, up=k % 2 == 0), b - 0.56, 0.38, pan=(-0.3 if k % 2 else 0.3))
+        # peaks just before the cut and is gone before the next phrase starts
+        add(fx, whoosh(0.9, 0.62, up=k % 2 == 0), b - 0.68, 0.38, pan=(-0.3 if k % 2 else 0.3))
     # location: pin lands
-    land = cue[1]["start"] - 0.15 + 0.9 * 0.364
+    land = R["location"]["cue"]["start"] - 0.15 + 0.9 * 0.364
     add(fx, pop(900, 320, 0.16), land, 0.28)
     add(fx, pop(700, 400, 0.08), land + 0.9 * 0.36, 0.1)
-    # standing: badge chime + three chips
-    add(fx, chime(1567.98, 2.2), cue[2]["start"] + 0.6, 0.09)
-    for w in ["الراحة", "الأمان", "وجودة"]:
-        add(fx, pop(), T.at(cue[3], w) - 0.1, 0.16)
+    # standing: badge chime + chips
+    add(fx, chime(1567.98, 2.2), R["standing"]["cue"]["start"] + 0.6, 0.09)
+    for tw in R["standing"]["chips"]:
+        add(fx, pop(), tw - 0.1, 0.16)
     # features rows (+ elevator ding)
-    for k in range(5):
-        add(fx, pop(1250, 750), cue[5 + k]["start"] - 0.15, 0.16, pan=0.4)
-    add(fx, ding(), cue[8]["end"] + 0.05, 0.09)
+    feats = dict(CONFIG, **tl["screen"])["features"]
+    for k, t0 in enumerate(R["features"]["rows"]):
+        add(fx, pop(1250, 750), t0 - 0.15, 0.16, pan=0.4)
+        if feats[k][1] == "elevator":
+            add(fx, ding(), min(R["features"]["ends"][k] - 0.35, t0 + 2.2), 0.09)
     # plan: stamp, blueprint scan, tag, chart
+    P = R["plan"]
     stamp = boom()[: int(0.45 * SR)] * np.linspace(1, 0, int(0.45 * SR)) ** 2
-    add(fx, stamp, cue[10]["start"] - 0.22, 0.24)   # lands just before "Vente sur plan", not on it
-    add(fx, scan_sweep(1.7), cue[10]["end"] - 0.2, 0.18)
-    add(fx, pop(1400, 900), T.at(cue[11], "شقتكم"), 0.18)
-    add(fx, chime(2093.0, 1.5), cue[11]["start"] + 1.4, 0.05)
-    add(fx, pop(), cue[12]["start"] + 0.3, 0.14)
-    # contact: rows + digit groups
-    for t0 in [T.at(cue[13], "اتصلوا") - 0.1, cue[15]["start"] - 0.1, cue[15]["start"] + 0.1]:
+    add(fx, stamp, P["title"]["start"] - 0.42, 0.24)   # lands just before "Vente sur plan", not on it
+    add(fx, scan_sweep(1.7), P["title"]["end"] + 0.05, 0.18)
+    add(fx, pop(1400, 900), T.at(P["pick"], "شقتكم", 0.4), 0.18)
+    add(fx, chime(2093.0, 1.5), P["pick"]["start"] + min(1.4, P["pick"]["dur"] * 0.8), 0.05)
+    if P["invest"]:
+        add(fx, pop(), P["invest"]["start"] + 0.3, 0.14)
+    # contact rows
+    for t0 in R["contact"]["appear"]:
         add(fx, pop(1000, 600), t0, 0.16, pan=0.4)
     # outro + end card
-    add(fx, chime(1760.0, 2.2), cue[18]["start"] + 0.9, 0.06)
-    endc = tl["vo_end"] + 0.25
-    add(fx, boom(), endc + 0.2, 0.5)
-    add(fx, chime(1318.5, 3.0), endc + 0.35, 0.16)
+    add(fx, chime(1760.0, 2.2), R["outro"]["l1"]["start"] + 0.9, 0.06)
+    endc = R["outro"]["endcard"]
+    q = endcard_pace(tl)
+    add(fx, boom(), endc + 0.2 * q, 0.5)
+    add(fx, chime(1318.5, 3.0), endc + 0.35 * q, 0.16)
     return reverb(fx, 1.8, 7000, 0.22)
 
 
@@ -295,16 +303,17 @@ def main():
     pre, out = os.path.join(BUILD, "mix_pre.wav"), os.path.join(BUILD, "mix.wav")
     fc = ("[0:a]highpass=f=80,equalizer=f=200:t=q:w=1.0:g=1.5,equalizer=f=3000:t=q:w=1.4:g=1.5,"
           "acompressor=threshold=-22dB:ratio=2.5:attack=8:release=160:makeup=1.5,"
-          "pan=stereo|c0=c0|c1=c0,asplit=2[vo][key];"
+          "pan=stereo|c0=c0|c1=c0,asplit=3[vo][key][key2];"
           "[1:a][key]sidechaincompress=threshold=0.025:ratio=7:attack=30:release=450[duck];"
-          f"[vo][duck][2:a]amix=inputs=3:normalize=0,atrim=0:{total:.3f}[out]")
+          "[2:a][key2]sidechaincompress=threshold=0.012:ratio=12:attack=5:release=300[fxduck];"
+          f"[vo][duck][fxduck]amix=inputs=3:normalize=0,atrim=0:{total:.3f}[out]")
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", os.path.join(BUILD, "stem_vo.wav"),
                     "-i", os.path.join(BUILD, "stem_music.wav"), "-i", os.path.join(BUILD, "stem_sfx.wav"),
                     "-filter_complex", fc, "-map", "[out]", "-ar", str(SR), "-c:a", "pcm_f32le", pre], check=True)
     # static loudness normalisation (a dynamic loudnorm rides the gain and blurs the voice)
     gain = TARGET_LUFS - integrated_loudness(pre)
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", pre, "-af",
-                    f"volume={gain:.2f}dB,alimiter=limit=0.84:attack=3:release=60:level=disabled",
+                    f"volume={gain:.2f}dB,alimiter=limit=0.79:attack=3:release=60:level=disabled",
                     "-ar", str(SR), "-c:a", "pcm_s16le", out], check=True)
     print(f"-> {out}  (gain {gain:+.1f} dB)")
 

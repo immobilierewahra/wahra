@@ -1,0 +1,23 @@
+{
+  "_note": "30-second cut. Same format as script.json; settings.target fixes the total length and the voice is sped up uniformly if it does not fit. Only the main phone number is read aloud (in the spoken form people use for phone numbers), the two WhatsApp numbers are shown on screen.",
+  "settings": {"lead": 0.9, "target": 30.0, "min_tail": 2.8, "trans": 0.45, "scene_lead": 0.25,
+               "speed": 1.25, "el_speed": 1.15, "bpm": 100},
+  "screen": {
+    "features": [["شقق عصرية بتشطيبات راقية", "sofa"], ["إقامة آمنة ومريحة", "shield"],
+                 ["موقف سيارات خاص", "car"], ["مصعد عصري", "elevator"]]
+  },
+  "cues": [
+    {"scene": "intro",    "pause": 0.12, "tts": "فُرْصَتُكَ لِامْتِلَاكِ شَقَّةٍ رَاقِيَةٍ فِي رِيَاضِ الْأَنْدَلُسْ!", "sub": "فرصتك لامتلاك شقة راقية في رياض الأندلس"},
+    {"scene": "location", "pause": 0.12, "tts": "مَوْقِعٌ مُمَيَّزٌ وَاسْتِثْنَائِيّ.", "sub": "موقع مميّز واستثنائي"},
+    {"scene": "standing", "pause": 0.12, "tts": "إِقَامَةٌ مِنَ الطِّرَازِ الرَّفِيعِ، بِتَصْمِيمٍ عَصْرِيّ.", "sub": "إقامة من الطراز الرفيع بتصميم عصري"},
+    {"scene": "features", "pause": 0.12, "features_at": {"شقق": 0, "أمان": 1, "موقف": 2, "ومصعد": 3},
+     "tts": "شُقَقٌ رَاقِيَةٌ، أَمَانٌ وَرَاحَةٌ، مَوْقِفُ سَيَّارَاتٍ خَاصٌّ، وَمِصْعَدٌ حَدِيثٌ وَعَصْرِيّ.",
+     "sub": "شقق راقية، أمان وراحة، موقف سيارات خاص، ومصعد حديث وعصري"},
+    {"scene": "plan",     "pause": 0.12, "lang": "fr", "speed": 1.0, "tts": "Vente sur plan !", "sub": "Vente sur plan"},
+    {"scene": "plan",     "pause": 0.12, "tts": "اِخْتَارُوا شَقَّتَكُمْ مِنَ الْآنْ!", "sub": "اختاروا شقتكم من الآن"},
+    {"scene": "contact",  "pause": 0.08, "tts": "لِلْحَجْزِ، اِتَّصِلُوا بِنَا:", "sub": "للحجز، اتصلوا بنا"},
+    {"scene": "contact",  "pause": 0.15, "phone": 0, "speed": 1.2, "tts": "عِشْرِينْ، صِفِرْ سِتَّة وِعِشْرِينْ، صِفِرْ سِتَّة وِعِشْرِينْ.", "sub": "+216 20 026 026"},
+    {"scene": "contact",  "pause": 0.12, "wa": true, "tts": "أَوْ عَبْرَ الْوَاتِسْ آبْ.", "sub": "أو عبر الواتساب"},
+    {"scene": "outro",    "pause": 0.00, "speed": 1.2, "tts": "اِسْتَثْمِرْ فِي مُسْتَقْبَلِكْ!", "sub": "استثمر في مستقبلك"}
+  ]
+}

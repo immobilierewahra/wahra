@@ -2,6 +2,7 @@
 
 python3 render.py                 -> build/video_silent.mp4
 python3 render.py --still 12.5 40 -> build/preview/still_12.50.png ... (quick checks)
+VIDEO_VARIANT=30s python3 render.py   (other cut, see timeline.py)
 """
 import argparse
 import math
@@ -17,7 +18,7 @@ import timeline as T
 from gfx import ease_back, ease_in, ease_io, ease_out, fade, lerp, place, prog
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-BUILD = os.path.join(HERE, "build")
+BUILD = T.BUILD
 W, H, FPS = T.W, T.H, T.FPS
 
 # Text shown on screen that is not spoken word-for-word.
@@ -44,6 +45,7 @@ def to_arr(img):
 def build_assets():
     global TL
     TL = T.load()
+    CONFIG.update(TL["screen"])
     src = Image.open(os.path.join(HERE, "assets", "building.jpg")).convert("RGB")
     a = to_arr(src)
     a = np.clip(a - 0.05 * np.sin(2 * np.pi * a), 0, 1)              # gentle S-curve
@@ -291,41 +293,39 @@ def shimmer_pos(t, t0, dur=1.1):
     return p if 0 < p < 1 else None
 
 
-def cue(i):
-    return TL["cues"][i]
-
-
 # ====================================================================== scenes
 def sc_intro(t, S):
-    c0 = cue(0)
+    R = TL["roles"]["intro"]
+    c0 = R["cue"]
     z = lerp(1.24, 1.05, ease_out(prog(t, 0.5, S["end"] + 0.6)))
     fr, _ = cam(A["img"], 728, 360, z)
     fr *= lerp(0.38, 0.5, prog(t, 1.0, S["end"]))
     particles(fr, t, 0.9)
 
-    op = ease_io(prog(t, 0.55, 1.45))
+    k = min(1.0, c0["start"] / 1.3)   # shorter lead-in -> faster opening
+    op = ease_io(prog(t, 0.55 * k, 1.45 * k))
     half = op * H / 2
     top, bot = int(H / 2 - half), int(math.ceil(H / 2 + half))
     fr[:max(0, top)] = 0
     fr[min(H, bot):] = 0
-    lw = ease_out(prog(t, 0.05, 0.6)) * W * 0.9 * (1 - 0.0 * op)
-    la = 1 - prog(t, 1.25, 1.6)
+    lw = ease_out(prog(t, 0.05, 0.6 * k)) * W * 0.9
+    la = 1 - prog(t, 1.25 * k, 1.6 * k)
     gold_line(fr, W / 2, max(top, 1), lw, a=la)
     gold_line(fr, W / 2, min(bot, H - 2), lw, a=la)
 
-    pop_in(fr, A["emblem_big"], W / 2, 152, "mm", 0.95, t, 0.7, s0=0.7, shimmer=shimmer_pos(t, 1.7))
+    pop_in(fr, A["emblem_big"], W / 2, 152, "mm", 0.95 * k, t, 0.7, s0=0.7, shimmer=shimmer_pos(t, 1.7 * k))
     text_in(fr, A["i_l1"], W / 2, 278, "mm", c0["start"], t)
-    p2 = prog(t, T.at(c0, "شقة") - 0.1, T.at(c0, "شقة") + 0.6)
+    p2 = prog(t, R["l2"] - 0.1, R["l2"] + 0.6)
     if p2 > 0:
         place(fr, A["i_l2"], W / 2, 384, "mm", a=min(1, p2 * 2), scale=lerp(1.18, 1, ease_out(p2)),
-              shimmer=shimmer_pos(t, T.at(c0, "راقية") + 0.4, 1.2))
-    text_in(fr, A["i_l3"], W / 2, 490, "mm", T.at(c0, "في") - 0.05, t)
-    gold_line(fr, W / 2, 545, 320 * ease_out(prog(t, T.at(c0, "في") + 0.2, T.at(c0, "في") + 1.0)))
+              shimmer=shimmer_pos(t, R["shine"], 1.2))
+    text_in(fr, A["i_l3"], W / 2, 490, "mm", R["l3"] - 0.05, t)
+    gold_line(fr, W / 2, 545, 320 * ease_out(prog(t, R["l3"] + 0.2, R["l3"] + 1.0)))
     return fr
 
 
 def sc_location(t, S):
-    c = cue(1)
+    c, word = TL["roles"]["location"]["cue"], TL["roles"]["location"]["word"]
     u = prog(t, S["start"] - 0.4, S["end"] + 0.4)
     fr, view = cam(A["img"], lerp(560, 700, ease_io(u)), 330, lerp(1.22, 1.1, ease_io(u)))
     place(fr, A["topgrad"], 0, 0)
@@ -339,14 +339,15 @@ def sc_location(t, S):
         place(fr, A["pin"], tip[0], tip[1] - (1 - g.bounce(pd)) * 340, "mb", a=min(1, pd * 4))
     x = W - 64
     text_in(fr, A["l_t1"], x, 22, "rt", c["start"], t)
-    text_in(fr, A["l_t2"], x, 96, "rt", T.at(c, "رياض") - 0.05, t)
-    gold_line(fr, x - 160, 160, 320 * ease_out(prog(t, T.at(c, "رياض"), T.at(c, "رياض") + 0.8)))
-    place(fr, A["l_t3"], x, 172, "rt", a=ease_out(prog(t, T.at(c, "رياض") + 0.3, T.at(c, "رياض") + 0.9)))
+    text_in(fr, A["l_t2"], x, 96, "rt", word - 0.05, t)
+    gold_line(fr, x - 160, 160, 320 * ease_out(prog(t, word, word + 0.8)))
+    place(fr, A["l_t3"], x, 172, "rt", a=ease_out(prog(t, word + 0.3, word + 0.9)))
     return fr
 
 
 def sc_standing(t, S):
-    c2, c3 = cue(2), cue(3)
+    R = TL["roles"]["standing"]
+    c2 = R["cue"]
     u = prog(t, S["start"] - 0.5, S["end"] + 0.5)
     fr, _ = cam(A["img"], lerp(905, 915, u), lerp(420, 405, u), lerp(1.32, 1.62, ease_io(u)), sx=W * 0.7)
     place(fr, A["leftgrad"], 0, 0)
@@ -355,24 +356,28 @@ def sc_standing(t, S):
     if pb > 0:
         place(fr, A["s_badge"], x, 102, "rt", a=ease_out(pb), scale=lerp(0.9, 1, ease_out(pb)),
               shimmer=shimmer_pos(t, c2["start"] + 0.6, 1.2))
-    text_in(fr, A["s_t1"], x, 178, "rt", T.at(c2, "إقامة") - 0.1, t, shimmer=shimmer_pos(t, c2["start"] + 2.6, 1.3))
-    text_in(fr, A["s_t2"], x, 268, "rt", T.at(c2, "بتصميم") - 0.1, t)
-    for k, (word, (ic, lb)) in enumerate(zip(["الراحة", "الأمان", "وجودة"], A["s_chips"])):
-        t0 = T.at(c3, word) - 0.1
+    text_in(fr, A["s_t1"], x, 178, "rt", R["t1"] - 0.1, t, shimmer=shimmer_pos(t, R["shine"], 1.3))
+    text_in(fr, A["s_t2"], x, 268, "rt", R["t2"] - 0.1, t)
+    for k, (tw, (ic, lb)) in enumerate(zip(R["chips"], A["s_chips"])):
+        t0 = tw - 0.1
         cx = x - 90 - k * 186
         pop_in(fr, ic, cx, 410, "mm", t0, t, 0.5)
         text_in(fr, lb, cx, 462, "mt", t0 + 0.12, t, 0.5, rise=8)
     return fr
 
 
-FEATURE_CAMS = [(640, 400, 1.12), (420, 372, 1.85), (575, 545, 1.9), (700, 640, 1.6), (805, 560, 2.0), (330, 300, 1.7)]
+FEATURE_HOME = (640, 400, 1.12)
+FEATURE_CAMS = {"sofa": (420, 372, 1.85), "shield": (575, 545, 1.9), "car": (700, 640, 1.6),
+                "elevator": (805, 560, 2.0), "diamond": (330, 300, 1.7)}
 
 
 def features_cam(t):
-    keys = [cue(4)["start"]] + [cue(5 + k)["start"] for k in range(5)]
-    cams = [list(c) for c in FEATURE_CAMS]
-    c8 = cue(8)  # elevator: ride up the building
-    cams[4][1] = lerp(560, 290, ease_io(prog(t, c8["start"] - 0.1, c8["end"] + 0.4)))
+    R = TL["roles"]["features"]
+    keys = [R["header"]] + R["rows"]
+    cams = [list(FEATURE_HOME)] + [list(FEATURE_CAMS[ic]) for _, ic in CONFIG["features"][:len(R["rows"])]]
+    for k, (_, ic) in enumerate(CONFIG["features"][:len(R["rows"])]):
+        if ic == "elevator":  # ride up the building while the elevator is mentioned
+            cams[k + 1][1] = lerp(560, 290, ease_io(prog(t, R["rows"][k] - 0.1, min(R["ends"][k], R["rows"][k] + 3) + 0.2)))
     cur = cams[0]
     for k in range(1, len(keys)):
         e = ease_io(prog(t, keys[k] - 0.35, keys[k] + 0.75))
@@ -385,6 +390,7 @@ def features_cam(t):
 
 
 def sc_features(t, S):
+    R = TL["roles"]["features"]
     fx, fy, z = features_cam(t)
     drift = 1 + 0.03 * math.sin((t - S["start"]) * 0.35)
     fr, _ = cam(A["img"], fx, fy, z * drift, sx=445, sy=330)
@@ -393,17 +399,16 @@ def sc_features(t, S):
     px, py = W - 40 + off, 48
     place(fr, A["f_panel"], px, py, "rt", a=ps)
     hx = px - 40
-    text_in(fr, A["f_head"], hx, py + 30, "rt", cue(4)["start"] - 0.1, t)
-    gold_line(fr, px - 265, py + 110, 420 * ease_out(prog(t, cue(4)["start"], cue(4)["start"] + 0.8)))
-    for k, (ic, white, gold) in enumerate(A["f_rows"]):
-        c = cue(5 + k)
-        nxt = cue(6 + k)["start"] if k < 4 else S["end"] + 1
+    text_in(fr, A["f_head"], hx, py + 30, "rt", R["header"] - 0.1, t)
+    gold_line(fr, px - 265, py + 110, 420 * ease_out(prog(t, R["header"], R["header"] + 0.8)))
+    for k, (ic, white, gold) in enumerate(A["f_rows"][:len(R["rows"])]):
+        t0, nxt = R["rows"][k], R["ends"][k]
         yc = py + 160 + k * 84
-        active = fade(t, c["start"] - 0.1, nxt - 0.1, 0.25, 0.25)
+        active = fade(t, t0 - 0.1, nxt - 0.1, 0.25, 0.25)
         if active > 0:
             place(fr, A["f_hl"], px - 265, yc, "mm", a=active)
-        pop_in(fr, ic, hx - 6, yc, "rm", c["start"] - 0.15, t, 0.45)
-        p = prog(t, c["start"] - 0.05, c["start"] + 0.6)
+        pop_in(fr, ic, hx - 6, yc, "rm", t0 - 0.15, t, 0.45)
+        p = prog(t, t0 - 0.05, t0 + 0.6)
         if p > 0:
             xx = hx - 82 + (1 - ease_out(p)) * 30
             place(fr, white, xx, yc, "rm", a=ease_out(p) * (1 - active))
@@ -412,9 +417,10 @@ def sc_features(t, S):
 
 
 def sc_plan(t, S):
-    c10, c11, c12 = cue(10), cue(11), cue(12)
-    zin = ease_io(prog(t, c11["start"] - 0.2, c11["start"] + 1.4))
-    zout = ease_io(prog(t, c12["start"] + 0.3, c12["start"] + 1.8))
+    R = TL["roles"]["plan"]
+    c10, c11, c12 = R["title"], R["pick"], R["invest"]
+    zin = ease_io(prog(t, c11["start"] - 0.2, c11["start"] + min(1.4, c11["dur"] * 0.8)))
+    zout = ease_io(prog(t, c12["start"] + 0.3, c12["start"] + 1.8)) if c12 else 0.0
     ax0, ay0, ax1, ay1 = CONFIG["apartment_box"]
     acx, acy = (ax0 + ax1) / 2, (ay0 + ay1) / 2
     fx = lerp(lerp(728, acx, zin), 728, zout)
@@ -461,8 +467,8 @@ def sc_plan(t, S):
         place(fr, A["p_t2"], W / 2, yy + 76, "mm", a=a, scale=s, shimmer=shimmer_pos(t, c10["start"] + 0.2))
 
     # choose your apartment
-    sel = prog(t, c11["start"] + 0.3, c11["start"] + 1.5)
-    sel_out = prog(t, c12["start"] + 0.2, c12["start"] + 0.8)
+    sel = prog(t, c11["start"] + 0.3, c11["start"] + min(1.5, c11["dur"] * 0.85))
+    sel_out = prog(t, c12["start"] + 0.2, c12["start"] + 0.8) if c12 else 0.0
     if sel > 0 and sel_out < 1:
         x0, y0 = to_screen(view, ax0, ay0)
         x1, y1 = to_screen(view, ax1, ay1)
@@ -470,9 +476,11 @@ def sc_plan(t, S):
         d = fr[int(max(0, y0)):int(min(H, y1)), int(max(0, x0)):int(min(W, x1))]
         d += (np.array([0.95, 0.8, 0.45], np.float32) - d) * 0.12 * a * ease_out(sel)
         rect_stroke(fr, x0, y0, x1, y1, ease_io(sel), width=4, a=a)
-        pop_in(fr, A["p_tag"], (x0 + x1) / 2, y0 - 12, "mb", T.at(c11, "شقتكم"), t, 0.5, a=a)
+        pop_in(fr, A["p_tag"], (x0 + x1) / 2, y0 - 12, "mb", T.at(c11, "شقتكم", 0.4), t, 0.5, a=a)
 
     # invest
+    if c12 is None:
+        return fr
     if t > c12["start"] - 0.5:
         place(fr, A["topgrad"], 0, 0, a=prog(t, c12["start"] - 0.4, c12["start"] + 0.3))
     text_in(fr, A["p_t3"], W / 2, 64, "mm", c12["start"] - 0.05, t)
@@ -487,7 +495,8 @@ def sc_contact(t, S):
     fr *= 0.42
     fr += np.array([0.05, 0.03, 0.0], np.float32)
     particles(fr, t, 0.8)
-    c13, c15 = cue(13), cue(15)
+    R = TL["roles"]["contact"]
+    c13 = R["head"]
 
     # portrait + rotating gold arcs
     pcx, pcy = 330, 300
@@ -501,30 +510,33 @@ def sc_contact(t, S):
     x = W - 64
     text_in(fr, A["c_head"], x, 52, "rt", c13["start"] - 0.05, t)
     text_in(fr, A["c_fr"], x, 128, "rt", c13["start"] + 0.7, t)
-    appear = [T.at(c13, "اتصلوا") - 0.1, c15["start"] - 0.1, c15["start"] + 0.1]
-    spoken = [cue(14), cue(16), cue(17)]
-    for k, R in enumerate(A["c_rows"]):
+    appear, windows = R["appear"], R["windows"]
+    for k, Row in enumerate(A["c_rows"]):
         yc = 252 + k * 126
         p = prog(t, appear[k], appear[k] + 0.6)
         if p <= 0:
             continue
-        sc = spoken[k]
-        nxt = spoken[k + 1]["start"] if k < 2 else S["end"] + 1
-        on = fade(t, sc["start"] - 0.2, nxt - 0.4, 0.3, 0.3) if k < 2 else prog(t, sc["start"] - 0.2, sc["start"] + 0.1)
+        win = windows[k]
+        later = [w[0] for w in windows[k + 1:] if w]
+        if win is None:
+            on = 0.0
+        elif later:
+            on = fade(t, win[0] - 0.2, later[0] - 0.4, 0.3, 0.3)
+        else:
+            on = prog(t, win[0] - 0.2, win[0] + 0.1)
         xo = (1 - ease_out(p)) * 60
         place(fr, A["c_row"], x + xo, yc, "rm", a=ease_out(p) * (1 - on))
         place(fr, A["c_row_on"], x + xo, yc, "rm", a=ease_out(p) * on)
-        icon = A["c_icons"][R["icon"]]
-        pulse = 1 + 0.06 * on * math.sin((t - sc["start"]) * 6) if on > 0 else 1
+        icon = A["c_icons"][Row["icon"]]
+        pulse = 1 + 0.06 * on * math.sin((t - win[0]) * 6) if on > 0 else 1
         place(fr, icon, x - 22 + xo, yc, "rm", a=min(1, p * 2), scale=pulse)
         tx = x - 118 + xo
-        place(fr, R["label"], tx, yc - 22, "rm", a=ease_out(p))
-        groups = T.group_times(sc)
-        n = 1 + sum(1 for gt in groups if t >= gt - 0.05)
-        n = min(n, len(R["nums"]))
-        full = R["nums"][-1]
+        place(fr, Row["label"], tx, yc - 22, "rm", a=ease_out(p))
+        n = 1 + sum(1 for gt in R["groups"][k] if t >= gt - 0.05)
+        n = min(n, len(Row["nums"]))
+        full = Row["nums"][-1]
         lx = tx - full.cw
-        place(fr, R["nums"][n - 1], lx, yc + 20, "lm", a=ease_out(p))
+        place(fr, Row["nums"][n - 1], lx, yc + 20, "lm", a=ease_out(p))
     return fr
 
 
@@ -543,8 +555,9 @@ def rings(fr, cx, cy, r, t, a):
 
 
 def sc_outro(t, S):
-    c18, c19 = cue(18), cue(19)
-    endc = TL["vo_end"] + 0.25
+    R = TL["roles"]["outro"]
+    c18, c19 = R["l1"], R["l2"]
+    endc = R["endcard"]
     u = prog(t, S["start"] - 0.5, TL["total"])
     fx, fy, z = 728, 372, lerp(1.2, 1.0, ease_out(u))
     fr, _ = cam(A["img"], fx, fy, z)
@@ -557,26 +570,34 @@ def sc_outro(t, S):
     if out > 0:
         place(fr, A["topgrad"], 0, 0, a=out)
         text_in(fr, A["o_t1"], W / 2, 76, "mm", c18["start"] - 0.05, t, a=out, shimmer=shimmer_pos(t, c18["start"] + 0.9))
-        text_in(fr, A["o_t2"], W / 2, 150, "mm", c19["start"] - 0.05, t, a=out)
+        if c19:
+            text_in(fr, A["o_t2"], W / 2, 150, "mm", c19["start"] - 0.05, t, a=out)
     if e > 0:
+        q = endcard_pace(TL)
         particles(fr, t, e)
-        pop_in(fr, A["o_emblem"], W / 2, 150, "mm", endc + 0.2, t, 0.8, s0=0.7, shimmer=shimmer_pos(t, endc + 1.0, 1.2))
-        text_in(fr, A["o_name"], W / 2, 288, "mm", endc + 0.45, t)
-        place(fr, A["o_sub"], W / 2, 345, "mm", a=ease_out(prog(t, endc + 0.7, endc + 1.3)))
-        gold_line(fr, W / 2, 392, 520 * ease_out(prog(t, endc + 0.8, endc + 1.6)))
+        pop_in(fr, A["o_emblem"], W / 2, 150, "mm", endc + 0.2 * q, t, 0.8 * q, s0=0.7,
+               shimmer=shimmer_pos(t, endc + 1.0 * q, 1.2))
+        text_in(fr, A["o_name"], W / 2, 288, "mm", endc + 0.45 * q, t, 0.7 * q)
+        place(fr, A["o_sub"], W / 2, 345, "mm", a=ease_out(prog(t, endc + 0.7 * q, endc + 1.3 * q)))
+        gold_line(fr, W / 2, 392, 520 * ease_out(prog(t, endc + 0.8 * q, endc + 1.6 * q)))
         # contact strip
         items = A["o_contacts"]
         gap = 46
         widths = [ic.cw + 12 + tx.cw for ic, tx in items]
         x = W / 2 + (sum(widths) + gap * (len(items) - 1)) / 2
         for k, ((ic, tx), wdt) in enumerate(zip(items, widths)):
-            p = prog(t, endc + 1.0 + k * 0.15, endc + 1.6 + k * 0.15)
+            p = prog(t, endc + (1.0 + k * 0.15) * q, endc + (1.6 + k * 0.15) * q)
             if p > 0:
                 place(fr, ic, x, 462 + (1 - ease_out(p)) * 16, "rm", a=ease_out(p))
                 place(fr, tx, x - ic.cw - 12, 462 + (1 - ease_out(p)) * 16, "rm", a=ease_out(p))
             x -= wdt + gap
-        place(fr, A["o_agency"], W / 2, 540, "mm", a=ease_out(prog(t, endc + 1.6, endc + 2.2)))
+        place(fr, A["o_agency"], W / 2, 540, "mm", a=ease_out(prog(t, endc + 1.6 * q, endc + 2.2 * q)))
     return fr
+
+
+def endcard_pace(tl):
+    """1.0 with the long end card; < 1 compresses its animations when the cut leaves less time."""
+    return max(0.55, min(1.0, (tl["total"] - tl["roles"]["outro"]["endcard"] - 0.6) / 2.95))
 
 
 SCENE_FN = dict(intro=sc_intro, location=sc_location, standing=sc_standing, features=sc_features,
@@ -666,8 +687,8 @@ def frame(t):
     k = max(i for i, s in enumerate(sc) if s["start"] <= t) if t >= 0 else 0
     fr = None
     for j, b in enumerate(TL["transitions"]):
-        if abs(t - b) < T.TRANS / 2:
-            x = (t - (b - T.TRANS / 2)) / T.TRANS
+        if abs(t - b) < TL["trans"] / 2:
+            x = (t - (b - TL["trans"] / 2)) / TL["trans"]
             a = SCENE_FN[sc[j]["name"]](t, sc[j])
             bb = SCENE_FN[sc[j + 1]["name"]](t, sc[j + 1])
             fr = transition(TRANS_KIND[j], a, bb, x)

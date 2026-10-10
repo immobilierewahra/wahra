@@ -1,8 +1,14 @@
 # Vidéo motion design – Résidence Haut Standing, Riadh El Andalous
 
-**Résultat :** [`output/riadh_el_andalous_ar.mp4`](output/riadh_el_andalous_ar.mp4)
-1456×732 (même format que le rendu 3D), 30 i/s, ~71 s, voix off arabe (rythme publicitaire, « Vente sur plan » dit en français) + sous-titres incrustés.
-Les sous-titres existent aussi en fichier séparé : [`output/riadh_el_andalous_ar.srt`](output/riadh_el_andalous_ar.srt).
+Deux versions, 1456×732 (même format que le rendu 3D), 30 i/s, voix off arabe (« Vente sur plan » dit en français) + sous-titres incrustés :
+
+| Version | Vidéo | Sous-titres | Texte |
+|---|---|---|---|
+| **30 secondes** | [`output/riadh_el_andalous_ar_30s.mp4`](output/riadh_el_andalous_ar_30s.mp4) | [`.srt`](output/riadh_el_andalous_ar_30s.srt) | [`script_30s.json`](script_30s.json) – texte condensé, seul le numéro principal est lu, les 2 WhatsApp sont affichés |
+| Longue (~71 s) | [`output/riadh_el_andalous_ar.mp4`](output/riadh_el_andalous_ar.mp4) | [`.srt`](output/riadh_el_andalous_ar.srt) | [`script.json`](script.json) – le paragraphe complet |
+
+La version 30 s dure exactement 30,0 s : si la voix ne tient pas, toutes les phrases sont accélérées du même facteur
+(étirement temporel sans changer la hauteur de voix), dans la limite de ×1,35.
 
 ## Déroulé
 
@@ -21,10 +27,22 @@ Bande son : musique d'ambiance synthétisée (Ré majeur, 84 BPM), qui baisse au
 ## Modifier / régénérer
 
 ```bash
-./make.sh               # tout reconstruire (télécharge la voix + Whisper la 1re fois)
-SKIP_TTS=1 ./make.sh    # garder la voix actuelle (vo/), refaire seulement image + son (~2 min)
-python3 render.py --still 12.5 40   # aperçus PNG dans build/preview/
+./make.sh 30s               # version 30 s (télécharge la voix + Whisper la 1re fois)
+./make.sh                   # version longue
+SKIP_TTS=1 ./make.sh 30s    # garder la voix actuelle (vo_30s/), refaire seulement image + son
+VIDEO_VARIANT=30s python3 render.py --still 12.5 20   # aperçus PNG dans build/30s/preview/
 ```
+
+### Voix ElevenLabs
+
+`tts.py` sait utiliser ElevenLabs (modèle `eleven_multilingual_v2` : la même voix dit l'arabe et « Vente sur plan » en français).
+Il faut, dans les réglages de l'environnement (menu de l'environnement cloud → *Edit*) :
+
+1. **Network access** : autoriser le domaine `api.elevenlabs.io` ;
+2. **Variables / secrets** : `ELEVENLABS_API_KEY` = votre clé API, et `ELEVENLABS_VOICE_ID` = l'ID de la voix choisie
+   (par exemple une voix tunisienne/maghrébine de la *Voice Library* ElevenLabs ; sinon une voix multilingue par défaut est utilisée).
+
+Ensuite `./make.sh 30s` utilise automatiquement ElevenLabs (vitesse 1,15, réglable via `settings.el_speed` dans le script).
 
 * **Texte parlé / sous-titres** : `script.json` (`tts` = texte vocalisé avec voyelles, `sub` = sous-titre affiché).
   Après modification, relancer `./make.sh` (sans `SKIP_TTS`).
@@ -34,10 +52,11 @@ python3 render.py --still 12.5 40   # aperçus PNG dans build/preview/
 
 ## Fichiers
 
-* `script.json` – texte de la voix off et des sous-titres, phrase par phrase
-* `tts.py` – synthèse vocale via sherpa-onnx : arabe Piper « ar_JO-kareem » (vitesse ×1,35), français Piper « fr_FR-upmc » voix *Pierre* ;
-  plusieurs prises par phrase, Whisper garde celle qui reste la plus intelligible (y compris avec un fond musical simulé)
-* `timeline.py` – calage des scènes et transitions sur la voix
+* `script.json` / `script_30s.json` – texte de chaque version ; `settings` (durée cible, vitesse…), `screen` (textes affichés)
+* `tts.py` – voix off : ElevenLabs (si clé API) ou Piper hors-ligne (arabe « ar_JO-kareem », français « fr_FR-upmc » *Pierre*) ;
+  plusieurs prises par phrase, Whisper garde celle qui reste la plus intelligible (y compris avec un fond musical simulé) ;
+  ajustement automatique à la durée cible
+* `timeline.py` – calage des scènes et transitions sur la voix (choix de la version via `VIDEO_VARIANT`)
 * `gfx.py` – texte arabe (shaping RAQM), dégradés dorés, pictos, emblème
 * `render.py` – scènes, transitions, sous-titres, encodage H.264
 * `audio.py` – musique, bruitages, mixage (−15 LUFS)
@@ -48,7 +67,7 @@ python3 render.py --still 12.5 40   # aperçus PNG dans build/preview/
 * **Voix de synthèse arabe** : modèle open source Piper `ar_JO-kareem-medium` (accent levantin). Sa licence d'origine n'est pas clairement documentée ;
   pour une publicité payante, une voix humaine (ou un service TTS sous licence commerciale) est plus sûre — voir ci-dessus pour la remplacer.
 * **Voix française** (« Vente sur plan ») : UPMC *Pierre*, données sous licence CC BY-SA 4.0 (https://github.com/marytts/upmc-pierre-data) — mentionner l'attribution si exigé.
-* **Voix tunisienne** : aucun modèle de voix tunisienne n'est téléchargeable depuis cet environnement ; les voix Microsoft `ar-TN-HediNeural` / `ar-TN-ReemNeural`
-  nécessitent l'accès au domaine `speech.platform.bing.com`. Une fois autorisé, `tts.py` peut être adapté pour les utiliser.
+* **Voix tunisienne** : aucun modèle de voix tunisienne n'est téléchargeable depuis cet environnement. Solution : ElevenLabs (ci-dessus) avec une
+  voix tunisienne de la Voice Library, ou les voix Microsoft `ar-TN-HediNeural` / `ar-TN-ReemNeural` (domaine `speech.platform.bing.com`).
 * **Nom d'agence** affiché sur la carte finale : « IMMOBILIÈRE WAHRA » (déduit du nom du dépôt) — à corriger dans `CONFIG` si besoin.
 * Le portrait est accompagné de la mention « نحن في خدمتكم » (à votre service), sans nom.
