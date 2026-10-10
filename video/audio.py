@@ -4,6 +4,7 @@ python3 audio.py -> build/mix.wav
 """
 import math
 import os
+import re
 import subprocess
 
 import numpy as np
@@ -15,6 +16,7 @@ import timeline as T
 HERE = os.path.dirname(os.path.abspath(__file__))
 BUILD = os.path.join(HERE, "build")
 SR = 48000
+TARGET_LUFS = -15.0
 rng = np.random.default_rng(3)
 
 
@@ -245,7 +247,8 @@ def sfx(total, tl):
         add(fx, pop(1250, 750), cue[5 + k]["start"] - 0.15, 0.16, pan=0.4)
     add(fx, ding(), cue[8]["end"] + 0.05, 0.09)
     # plan: stamp, blueprint scan, tag, chart
-    add(fx, boom()[: int(0.6 * SR)], cue[10]["start"] - 0.1, 0.32)
+    stamp = boom()[: int(0.45 * SR)] * np.linspace(1, 0, int(0.45 * SR)) ** 2
+    add(fx, stamp, cue[10]["start"] - 0.22, 0.24)   # lands just before "Vente sur plan", not on it
     add(fx, scan_sweep(1.7), cue[10]["end"] - 0.2, 0.18)
     add(fx, pop(1400, 900), T.at(cue[11], "شقتكم"), 0.18)
     add(fx, chime(2093.0, 1.5), cue[11]["start"] + 1.4, 0.05)
@@ -269,6 +272,8 @@ def voice(total, tl):
         x, sr = sf.read(c["file"], dtype="float32")
         g = math.gcd(SR, sr)
         y = resample_poly(x, SR // g, sr // g)
+        act = np.abs(y) > 0.02 * np.abs(y).max()
+        y = y * 0.12 / np.sqrt(np.mean(y[act] ** 2))   # same loudness for every phrase / voice
         i = int(round(c["start"] * SR))
         vo[i:i + len(y)] += y[: max(0, N - i)]
     return vo / (np.abs(vo).max() + 1e-9) * 0.7
@@ -287,18 +292,27 @@ def main():
     stems["sfx"] *= db(-5) / np.abs(stems["sfx"]).max()
     for k, v in stems.items():
         sf.write(os.path.join(BUILD, f"stem_{k}.wav"), np.clip(v, -1, 1).astype(np.float32), SR, subtype="FLOAT")
-    out = os.path.join(BUILD, "mix.wav")
+    pre, out = os.path.join(BUILD, "mix_pre.wav"), os.path.join(BUILD, "mix.wav")
     fc = ("[0:a]highpass=f=80,equalizer=f=200:t=q:w=1.0:g=1.5,equalizer=f=3000:t=q:w=1.4:g=1.5,"
           "acompressor=threshold=-22dB:ratio=2.5:attack=8:release=160:makeup=1.5,"
           "pan=stereo|c0=c0|c1=c0,asplit=2[vo][key];"
-          "[1:a]volume=1.0[mus];[mus][key]sidechaincompress=threshold=0.025:ratio=7:attack=30:release=450[duck];"
-          "[2:a]volume=1.0[fx];"
-          "[vo][duck][fx]amix=inputs=3:normalize=0,alimiter=limit=0.95,"
-          f"loudnorm=I=-15:TP=-1.5:LRA=9,atrim=0:{total:.3f}[out]")
+          "[1:a][key]sidechaincompress=threshold=0.025:ratio=7:attack=30:release=450[duck];"
+          f"[vo][duck][2:a]amix=inputs=3:normalize=0,atrim=0:{total:.3f}[out]")
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", os.path.join(BUILD, "stem_vo.wav"),
                     "-i", os.path.join(BUILD, "stem_music.wav"), "-i", os.path.join(BUILD, "stem_sfx.wav"),
-                    "-filter_complex", fc, "-map", "[out]", "-ar", str(SR), "-c:a", "pcm_s16le", out], check=True)
-    print("->", out)
+                    "-filter_complex", fc, "-map", "[out]", "-ar", str(SR), "-c:a", "pcm_f32le", pre], check=True)
+    # static loudness normalisation (a dynamic loudnorm rides the gain and blurs the voice)
+    gain = TARGET_LUFS - integrated_loudness(pre)
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", pre, "-af",
+                    f"volume={gain:.2f}dB,alimiter=limit=0.84:attack=3:release=60:level=disabled",
+                    "-ar", str(SR), "-c:a", "pcm_s16le", out], check=True)
+    print(f"-> {out}  (gain {gain:+.1f} dB)")
+
+
+def integrated_loudness(path):
+    r = subprocess.run(["ffmpeg", "-hide_banner", "-i", path, "-af", "ebur128", "-f", "null", "-"],
+                       capture_output=True, text=True)
+    return float(re.findall(r"I:\s+(-?[\d.]+) LUFS", r.stderr)[-1])
 
 
 if __name__ == "__main__":

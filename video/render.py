@@ -100,7 +100,7 @@ def build_assets():
     A["f_hl"] = g.rounded_box(494, 72, 14, fill=g.GOLD, alpha=0.16)
     # --- plan
     A["p_t1"] = g.text("البيع على المخطط", f(EM, 74, 700), blur=8)
-    A["p_t2"] = g.text("VENTE SUR PLAN", f("Montserrat.ttf", 25, 600), gold=True, tracking=9, blur=5)
+    A["p_t2"] = g.text("VENTE SUR PLAN", f("Montserrat.ttf", 31, 700), gold=True, tracking=10, blur=5)
     A["p_frame"] = frame_box(620, 170)
     A["p_tag"] = tag("شقتكم", "key")
     A["p_t3"] = g.text("واستثمروا في مشروع سكني مميّز", f(EM, 46, 600))
@@ -458,7 +458,7 @@ def sc_plan(t, S):
         yy = 112 - 40 * ease_in(out)
         place(fr, A["p_frame"], W / 2, yy + 32, "mm", a=a * 0.95, scale=s)
         place(fr, A["p_t1"], W / 2, yy, "mm", a=a, scale=s)
-        place(fr, A["p_t2"], W / 2, yy + 72, "mm", a=a, scale=s, shimmer=shimmer_pos(t, c10["start"] + 0.5))
+        place(fr, A["p_t2"], W / 2, yy + 76, "mm", a=a, scale=s, shimmer=shimmer_pos(t, c10["start"] + 0.2))
 
     # choose your apartment
     sel = prog(t, c11["start"] + 0.3, c11["start"] + 1.5)

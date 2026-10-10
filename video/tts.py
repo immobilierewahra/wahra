@@ -1,9 +1,12 @@
-"""Generate the Arabic voice-over, one clip per cue, plus a timing file.
+"""Generate the voice-over (Arabic, plus French cues), one clip per cue, plus a timing file.
 
-Usage:  python3 tts.py --voice-dir <piper voice dir> [--asr-dir <whisper dir>] [--takes 5] [--only 3 7]
+Usage:  python3 tts.py --voice-dir <arabic voice> --fr-voice-dir <french voice> [--asr-dir <whisper dir>]
+                       [--takes 5] [--only 3 7]
 
 Voices are Piper/VITS models packaged for sherpa-onnx, e.g.
 https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-ar_JO-kareem-medium.tar.bz2
+https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-fr_FR-upmc-medium.tar.bz2
+A cue with "lang": "fr" in script.json is spoken by the French voice (speaker --fr-sid).
 
 VITS synthesis is stochastic, so with --asr-dir (a sherpa-onnx Whisper model, e.g.
 .../releases/download/asr-models/sherpa-onnx-whisper-turbo.tar.bz2) several takes of
@@ -52,14 +55,16 @@ def trim(x, sr, thresh=0.005, pad=0.08):
     return x[a:b]
 
 
-def load_asr(asr_dir, threads=4):
+def load_asr(asr_dir, threads=4, language="ar"):
     pick = lambda pat: sorted(glob.glob(os.path.join(asr_dir, pat)))[0]
     return sherpa_onnx.OfflineRecognizer.from_whisper(
         encoder=pick("*encoder*.onnx"), decoder=pick("*decoder*.onnx"),
-        tokens=pick("*tokens.txt"), language="ar", task="transcribe", num_threads=threads)
+        tokens=pick("*tokens.txt"), language=language, task="transcribe", num_threads=threads)
 
 
-def norm(s):
+def norm(s, lang="ar"):
+    if lang != "ar":
+        return re.sub(r"[^a-zà-ÿ0-9]", "", s.lower())
     s = re.sub(r"[\u064B-\u0652\u0670\u0640]", "", s)
     s = re.sub(r"[إأآٱ]", "ا", s).replace("ة", "ه").replace("ى", "ي")
     return re.sub(r"[^\u0621-\u064A0-9]", "", s)
@@ -78,18 +83,32 @@ def score(asr, cue, x, sr):
     s = asr.create_stream()
     s.accept_waveform(sr, x)
     asr.decode_stream(s)
-    hyp = norm(s.result.text)
-    err = cer(norm(cue["tts"]), hyp)
+    lang = cue.get("lang", "ar")
+    hyp = norm(s.result.text, lang)
+    err = cer(norm(cue["tts"], lang), hyp)
     if "phone" in cue:  # Whisper may write the spoken number as digits
         digits = re.sub(r"\D", "", cue["sub"].replace("+216", ""))
         err = min(err, cer(digits, re.sub(r"\D", "", hyp)))
     return err, s.result.text.strip()
 
 
+def robust_score(asr, cue, x, sr, seed=0):
+    """Worst-case score of a take, clean and with a music-like noise bed underneath (~14 dB below)."""
+    err, hyp = score(asr, cue, x, sr)
+    rng = np.random.default_rng(seed)
+    noise = np.cumsum(rng.standard_normal(len(x))).astype(np.float32)   # brown-ish, like a pad + bass
+    noise -= np.convolve(noise, np.ones(200) / 200, "same")
+    noise *= np.sqrt(np.mean(x ** 2)) / (np.sqrt(np.mean(noise ** 2)) + 1e-9) * 0.2
+    err2, _ = score(asr, cue, x + noise, sr)
+    return max(err, err2), hyp
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--voice-dir", required=True)
-    ap.add_argument("--speed", type=float, default=1.08)
+    ap.add_argument("--speed", type=float, default=1.35)
+    ap.add_argument("--fr-voice-dir", help="French voice for cues with \"lang\": \"fr\"")
+    ap.add_argument("--fr-sid", type=int, default=1, help="speaker id in the French voice (upmc: 1 = pierre)")
     ap.add_argument("--out", default=os.path.join(HERE, "vo"))
     ap.add_argument("--only", type=int, nargs="*", help="cue indices to render")
     ap.add_argument("--asr-dir", help="Whisper model dir used to pick the clearest take")
@@ -98,8 +117,10 @@ def main():
 
     script = json.load(open(os.path.join(HERE, "script.json"), encoding="utf-8"))
     os.makedirs(args.out, exist_ok=True)
-    tts = load_tts(args.voice_dir)
-    asr = load_asr(args.asr_dir) if args.asr_dir else None
+    voices = {"ar": (load_tts(args.voice_dir), 0)}
+    if args.fr_voice_dir:
+        voices["fr"] = (load_tts(args.fr_voice_dir), args.fr_sid)
+    asrs = {lang: load_asr(args.asr_dir, language=lang) for lang in voices} if args.asr_dir else {}
 
     timing_path = os.path.join(args.out, "timing.json")
     timing = json.load(open(timing_path)) if args.only and os.path.exists(timing_path) else []
@@ -107,12 +128,15 @@ def main():
     for i, cue in enumerate(script["cues"]):
         if args.only and i not in args.only:
             continue
+        lang = cue.get("lang", "ar")
+        tts, sid = voices[lang]
+        asr = asrs.get(lang)
         best = None
         for _ in range(args.takes if asr else 1):
-            audio = tts.generate(cue["tts"], sid=0, speed=cue.get("speed", args.speed))
+            audio = tts.generate(cue["tts"], sid=sid, speed=cue.get("speed", args.speed))
             sr = audio.sample_rate
             x = trim(np.asarray(audio.samples, dtype=np.float32), sr)
-            err, hyp = score(asr, cue, x, sr) if asr else (0.0, "")
+            err, hyp = robust_score(asr, cue, x, sr) if asr else (0.0, "")
             if best is None or err < best[0]:
                 best = (err, hyp, x)
             if err == 0:

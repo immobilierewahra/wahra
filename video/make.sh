@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Full pipeline: voice-over -> motion graphics -> soundtrack -> final MP4 (+ SRT).
 #   ./make.sh            build everything
-#   SKIP_TTS=1 ./make.sh reuse build/vo (e.g. after editing visuals only)
+#   SKIP_TTS=1 ./make.sh reuse the voice takes in vo/ (e.g. after editing visuals only)
 set -euo pipefail
 cd "$(dirname "$0")"
 
 REL=https://github.com/k2-fsa/sherpa-onnx/releases/download
 VOICE=models/vits-piper-ar_JO-kareem-medium
+VOICE_FR=models/vits-piper-fr_FR-upmc-medium
 ASR=models/sherpa-onnx-whisper-turbo
 OUT=output/riadh_el_andalous_ar.mp4
 
@@ -18,8 +19,9 @@ fetch() {  # fetch <dir> <url>
 
 if [ -z "${SKIP_TTS:-}" ]; then
   fetch "$VOICE" "$REL/tts-models/vits-piper-ar_JO-kareem-medium.tar.bz2"
+  fetch "$VOICE_FR" "$REL/tts-models/vits-piper-fr_FR-upmc-medium.tar.bz2"
   fetch "$ASR" "$REL/asr-models/sherpa-onnx-whisper-turbo.tar.bz2"
-  python3 tts.py --voice-dir "$VOICE" --asr-dir "$ASR" --takes 6
+  python3 tts.py --voice-dir "$VOICE" --fr-voice-dir "$VOICE_FR" --asr-dir "$ASR" --takes 6
 fi
 
 python3 render.py
