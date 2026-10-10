@@ -31,6 +31,7 @@ CONFIG = {
     "features": [("شقق عصرية بتشطيبات راقية", "sofa"), ("إقامة آمنة ومريحة", "shield"), ("موقف سيارات خاص", "car"),
                  ("مصعد عصري", "elevator"), ("جودة عالية وتصميم مميّز", "diamond")],
     "apartment_box": (836, 386, 955, 452),   # balcony highlighted for "choose your apartment"
+    "standing_title": "إقامة من الطراز الرفيع",
 }
 
 TL = None
@@ -90,7 +91,7 @@ def build_assets():
     A["l_t3"] = g.text(CONFIG["place_latin"], f("Montserrat.ttf", 18, 600), gold=True, tracking=7, blur=5, shadow=0.9)
     # --- standing
     A["s_badge"] = badge("HAUT STANDING")
-    A["s_t1"] = g.text("إقامة من الطراز الرفيع", f(EM, 58, 700), gold=True, blur=8)
+    A["s_t1"] = g.text(CONFIG["standing_title"], f(EM, 58, 700), gold=True, blur=8)
     A["s_t2"] = g.text("بتصميم عصري وأنيق", f(EM, 42, 500))
     A["s_chips"] = [(g.icon_badge(ic, 74), g.text(lb, f("Cairo.ttf", 27, 700), blur=5))
                     for lb, ic in [("الراحة", "sofa"), ("الأمان", "shield"), ("جودة الحياة", "leaf")]]

@@ -2,6 +2,7 @@
 # Full pipeline: voice-over -> motion graphics -> soundtrack -> final MP4 (+ SRT).
 #   ./make.sh                 long version  (script.json     -> output/riadh_el_andalous_ar.mp4)
 #   ./make.sh 30s             30-second cut (script_30s.json -> output/riadh_el_andalous_ar_30s.mp4)
+#   ./make.sh voix            recorded voice-over (script_voix.json + assets/voix_off.mp3 -> output/..._voix.mp4)
 #   SKIP_TTS=1 ./make.sh 30s  reuse the voice takes already in vo*/ (e.g. after editing visuals only)
 # Voice engine: ElevenLabs when ELEVENLABS_API_KEY is set (optional ELEVENLABS_VOICE_ID, ELEVENLABS_MODEL),
 # otherwise the offline Piper voices.
@@ -20,7 +21,9 @@ fetch() {  # fetch <dir> <url>
   [ -d "$1" ] || { mkdir -p models; curl -sSL "$2" | tar xj -C models; }
 }
 
-if [ -z "${SKIP_TTS:-}" ]; then
+if python3 -c "import sys, timeline as T; sys.exit(0 if 'voice_file' in T.read_script() else 1)"; then
+  python3 import_voice.py          # recorded voice: cut it into timed phrases, no synthesis
+elif [ -z "${SKIP_TTS:-}" ]; then
   fetch "$ASR" "$REL/asr-models/sherpa-onnx-whisper-turbo.tar.bz2"
   if [ -n "${ELEVENLABS_API_KEY:-}" ]; then
     python3 tts.py --engine elevenlabs --asr-dir "$ASR"

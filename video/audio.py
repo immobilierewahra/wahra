@@ -280,8 +280,9 @@ def voice(total, tl):
         x, sr = sf.read(c["file"], dtype="float32")
         g = math.gcd(SR, sr)
         y = resample_poly(x, SR // g, sr // g)
-        act = np.abs(y) > 0.02 * np.abs(y).max()
-        y = y * 0.12 / np.sqrt(np.mean(y[act] ** 2))   # same loudness for every phrase / voice
+        if T.settings().get("normalize_phrases", True):   # synthesis: same loudness for every phrase / voice
+            act = np.abs(y) > 0.02 * np.abs(y).max()
+            y = y * 0.12 / np.sqrt(np.mean(y[act] ** 2))
         i = int(round(c["start"] * SR))
         vo[i:i + len(y)] += y[: max(0, N - i)]
     return vo / (np.abs(vo).max() + 1e-9) * 0.7

@@ -3,6 +3,7 @@
 Several cuts of the video can coexist; pick one with the VIDEO_VARIANT environment variable:
   (unset)  -> script.json,     vo/,     build/,     output/riadh_el_andalous_ar.mp4      (long version)
   30s      -> script_30s.json, vo_30s/, build/30s/, output/riadh_el_andalous_ar_30s.mp4
+  voix     -> script_voix.json (recorded voice-over assets/voix_off.mp3, see import_voice.py)
 """
 import json
 import os
@@ -35,12 +36,20 @@ def load():
     st = settings(script)
     timing = json.load(open(os.path.join(VO_DIR, "timing.json")))
     durs = {t["i"]: t["dur"] for t in timing}
+    placed = {t["i"]: t["at"] for t in timing if "at" in t}   # recorded voice: keep its own timing
 
     cues, t = [], st["lead"]
     for i, c in enumerate(script["cues"]):
         d = durs[i]
+        if i in placed:
+            t = st["lead"] + placed[i]
         cues.append(dict(c, i=i, start=t, end=t + d, dur=d, file=os.path.join(VO_DIR, f"cue_{i:02d}.wav")))
-        t += d + c["pause"]
+        if i in placed and "src" in c:   # word_at is measured from the phrase onset, the clip starts a bit earlier
+            cues[-1]["word_offset"] = c["src"][0] - placed[i]
+        t += d + c.get("pause", 0.0)
+    for c, nxt in zip(cues, cues[1:]):
+        c["pause"] = max(0.0, nxt["start"] - c["end"])
+    cues[-1]["pause"] = 0.0
     vo_end = cues[-1]["end"]
     total = st["target"] if st["target"] else vo_end + st["tail"]
 
@@ -70,6 +79,8 @@ def word_times(cue):
 
 def at(cue, word, frac=None):
     """Time at which `word` is spoken in `cue`; falls back to a fraction of the cue when it is not said."""
+    if word in cue.get("word_at", {}):          # measured on a recorded voice
+        return cue["start"] + cue.get("word_offset", 0.0) + cue["word_at"][word]
     for w, t in word_times(cue):
         if w == word:
             return t
@@ -118,7 +129,8 @@ def roles(tl):
     head = S["cues"][0]
     wa = next((c for c in S["cues"] if c.get("wa")), None)
     spoken = {c["phone"]: c for c in S["cues"] if "phone" in c}
-    appear = [at(head, "اتصلوا", 0.3) - 0.1]
+    call = next((c for c in S["cues"] if "اتصلوا" in c["sub"]), head)
+    appear = [at(call, "اتصلوا", 0.3) - 0.1]
     appear += [wa["start"] - 0.1, wa["start"] + 0.1] if wa else [appear[0] + 0.3, appear[0] + 0.5]
     groups, windows = [], []
     for k in range(3):
