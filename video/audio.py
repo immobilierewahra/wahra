@@ -116,8 +116,10 @@ def music(total, tl):
     low = np.zeros((N, 2))
     drums = np.zeros((N, 2))
     beat_in = tl["scenes"][1]["start"]          # percussion enters with the first transition
+    by_name = {sc["name"]: sc for sc in tl["scenes"]}
     beat_out = tl["vo_end"] + 0.2               # and drops for the end card
-    calm = (tl["scenes"][5]["start"], tl["scenes"][6]["start"])  # lighter during the long contact scene
+    contact = by_name.get("contact")             # lighter while contact details are on screen
+    calm = (contact["start"], contact["end"]) if contact else (-1.0, -1.0)
     nbars = int(total / BAR) + 2
     for b in range(nbars):
         t0 = b * BAR
@@ -272,6 +274,34 @@ def sfx(total, tl):
     return reverb(fx, 1.8, 7000, 0.22)
 
 
+def sfx_reel(total, tl):
+    """Sound design for the multi-photo vertical videos (reel.py)."""
+    import reel
+    N = int(total * SR) + SR
+    fx = np.zeros((N, 2))
+    k = min(1.0, tl["cues"][0]["start"] / 1.3)
+    add(fx, whoosh(1.1, 0.85, up=True), -0.2, 0.35)
+    add(fx, boom(), 0.62 * k, 0.55)
+    add(fx, chime(1318.5), 0.98 * k, 0.16)
+    for j, b in enumerate(tl["transitions"]):
+        add(fx, whoosh(0.9, 0.62, up=j % 2 == 0), b - 0.68, 0.38, pan=(-0.3 if j % 2 else 0.3))
+    stamp = boom()[: int(0.45 * SR)] * np.linspace(1, 0, int(0.45 * SR)) ** 2
+    for kind, t0 in reel.events():
+        if kind == "pop":
+            add(fx, pop(), t0, 0.16, pan=0.3)
+        elif kind == "swish":
+            add(fx, whoosh(0.5, 0.6, up=True), t0 - 0.3, 0.2, pan=-0.3)
+        elif kind == "stamp":
+            add(fx, stamp, t0, 0.22)
+        elif kind == "chime":
+            add(fx, chime(1760.0, 2.0), t0, 0.07)
+    endc = tl["vo_end"] + 0.25
+    q = reel.endcard_pace(tl)
+    add(fx, boom(), endc + 0.15 * q, 0.5)
+    add(fx, chime(1318.5, 3.0), endc + 0.3 * q, 0.16)
+    return reverb(fx, 1.8, 7000, 0.22)
+
+
 # ---------------------------------------------------------------------- voice
 def voice(total, tl):
     N = int(total * SR) + SR
@@ -292,7 +322,8 @@ def main():
     tl = T.load()
     total = tl["total"]
     os.makedirs(BUILD, exist_ok=True)
-    stems = {"vo": voice(total, tl), "music": music(total, tl), "sfx": sfx(total, tl)}
+    stems = {"vo": voice(total, tl), "music": music(total, tl),
+             "sfx": sfx_reel(total, tl) if tl["kind"] == "reel" else sfx(total, tl)}
     db = lambda x: 10 ** (x / 20)
     vo = stems["vo"]
     active = np.abs(vo) > 0.02

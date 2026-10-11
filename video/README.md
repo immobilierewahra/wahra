@@ -1,4 +1,26 @@
-# Vidéo motion design – Résidence Haut Standing, Riadh El Andalous
+# Vidéos motion design – Immobilière Wahra
+
+## Yessine Centre – Radès (bureaux à vendre)
+
+**Résultat :** [`output/yessine_centre_ar.mp4`](output/yessine_centre_ar.mp4) (+ [`.srt`](output/yessine_centre_ar.srt)) —
+vidéo **verticale 1080×1440** (format 3:4 des photos), ~41 s, calée sur la voix off [`assets/yessine/voix_off.mp3`](assets/yessine/voix_off.mp3).
+
+| Voix | Scène | Photo(s) |
+|---|---|---|
+| مكتبك ليس مجرد مكان للعمل، بل هو عنوان… | accroche dorée, logo Yessine Centre | `facade_grand_angle` |
+| ياسين سنتر – رادس | « YESSINE CENTRE », épingle sur l'enseigne réelle, رادس · RADÈS | `facade_face` |
+| مكاتب للبيع في موقع استراتيجي… | badge À VENDRE, pictos الراحة / قيمة الاستثمار | `facade_face2` (travelling vers le haut) |
+| فضاء مهني… يليق بطموحاتك… انطلاقة مميزة… مكتبك القادم هنا | montage rapide, un mot-clé doré par photo | `hall_ascenseurs`, `couloir_marbre`, `espace_lumineux`, `grande_piece` |
+| تواصلوا معنا… على الأرقام التالية | portrait + 3 numéros tapés à l'écran | fond flou `hall_boites` |
+| واكتشفوا المكاتب المتاحة… عبر موقعنا الإلكتروني | galerie 4 photos, puce « رادس », carte « IMMOBILIÈRE WAHRA » | `bureau_vue`, `cuisine`, `sanitaire`, `couloir_int` |
+| اختر لمشروعك عنواناً يليق بطموحك | slogan puis carte finale (logo, numéros, agence) | `facade_face` |
+
+`./make.sh yessine` reconstruit tout (`script_yessine.json` : phrases, textes affichés, numéros ; `reel.py` : mise en scène).
+Les photos retenues sont dans `assets/yessine/` (redressées et réduites) ; la photo retouchée par IA (enseignes déformées) a été écartée.
+
+---
+
+# Résidence Haut Standing, Riadh El Andalous
 
 Trois versions, 1456×732 (même format que le rendu 3D), 30 i/s, voix off arabe + sous-titres arabes incrustés :
 
@@ -77,5 +99,7 @@ Ensuite `./make.sh 30s` utilise automatiquement ElevenLabs (vitesse 1,15, régla
 * **Voix française** (« Vente sur plan ») : UPMC *Pierre*, données sous licence CC BY-SA 4.0 (https://github.com/marytts/upmc-pierre-data) — mentionner l'attribution si exigé.
 * **Voix tunisienne** : aucun modèle de voix tunisienne n'est téléchargeable depuis cet environnement. Solution : ElevenLabs (ci-dessus) avec une
   voix tunisienne de la Voice Library, ou les voix Microsoft `ar-TN-HediNeural` / `ar-TN-ReemNeural` (domaine `speech.platform.bing.com`).
-* **Nom d'agence** affiché sur la carte finale : « IMMOBILIÈRE WAHRA » (déduit du nom du dépôt) — à corriger dans `CONFIG` si besoin.
+* **Nom d'agence** affiché sur la carte finale : « IMMOBILIÈRE WAHRA » — confirmé par la voix off Yessine Centre.
+* **Yessine Centre** : les numéros affichés sont ceux de l'annonce Riadh El Andalous (la voix ne les lit pas) ; l'adresse du site
+  web n'étant pas connue, la carte « موقعنا الإلكتروني » affiche le nom de l'agence — à compléter dans `script_yessine.json` (`screen`).
 * Le portrait est accompagné de la mention « نحن في خدمتكم » (à votre service), sans nom.

@@ -4,6 +4,7 @@ Several cuts of the video can coexist; pick one with the VIDEO_VARIANT environme
   (unset)  -> script.json,     vo/,     build/,     output/riadh_el_andalous_ar.mp4      (long version)
   30s      -> script_30s.json, vo_30s/, build/30s/, output/riadh_el_andalous_ar_30s.mp4
   voix     -> script_voix.json (recorded voice-over assets/voix_off.mp3, see import_voice.py)
+  yessine  -> script_yessine.json: another project, a vertical multi-photo "reel" (rendered by reel.py)
 """
 import json
 import os
@@ -19,11 +20,18 @@ SUFFIX = f"_{VARIANT}" if VARIANT else ""
 SCRIPT = os.path.join(HERE, f"script{SUFFIX}.json")
 VO_DIR = os.path.join(HERE, f"vo{SUFFIX}")
 BUILD = os.path.join(HERE, "build", VARIANT) if VARIANT else os.path.join(HERE, "build")
-OUTPUT = os.path.join(HERE, "output", f"riadh_el_andalous_ar{SUFFIX}.mp4")
 
 
 def read_script():
     return json.load(open(SCRIPT, encoding="utf-8"))
+
+
+def output_path():
+    name = read_script().get("output", f"riadh_el_andalous_ar{SUFFIX}")
+    return os.path.join(HERE, "output", f"{name}.mp4")
+
+
+OUTPUT = output_path() if os.path.exists(SCRIPT) else None
 
 
 def settings(script=None):
@@ -56,13 +64,15 @@ def load():
     starts = {}
     for c in cues:
         starts.setdefault(c["scene"], c["start"])
-    bounds = [0.0] + [starts[s] - st["scene_lead"] for s in SCENES[1:]] + [total]
-    scenes = [dict(name=s, start=bounds[k], end=bounds[k + 1]) for k, s in enumerate(SCENES)]
+    names = script.get("scenes", SCENES)
+    bounds = [0.0] + [starts[s] - st["scene_lead"] for s in names[1:]] + [total]
+    scenes = [dict(name=s, start=bounds[k], end=bounds[k + 1]) for k, s in enumerate(names)]
     for s in scenes:
         s["cues"] = [c for c in cues if c["scene"] == s["name"]]
     tl = dict(cues=cues, scenes=scenes, transitions=bounds[1:-1], vo_end=vo_end, total=total,
-              trans=st["trans"], screen=script.get("screen", {}))
-    tl["roles"] = roles(tl)
+              trans=st["trans"], screen=script.get("screen", {}), kind=script.get("kind", "single"))
+    if tl["kind"] == "single":
+        tl["roles"] = roles(tl)
     return tl
 
 

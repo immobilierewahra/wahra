@@ -3,6 +3,7 @@
 #   ./make.sh                 long version  (script.json     -> output/riadh_el_andalous_ar.mp4)
 #   ./make.sh 30s             30-second cut (script_30s.json -> output/riadh_el_andalous_ar_30s.mp4)
 #   ./make.sh voix            recorded voice-over (script_voix.json + assets/voix_off.mp3 -> output/..._voix.mp4)
+#   ./make.sh yessine         Yessine Centre: vertical multi-photo video on its recorded voice-over
 #   SKIP_TTS=1 ./make.sh 30s  reuse the voice takes already in vo*/ (e.g. after editing visuals only)
 # Voice engine: ElevenLabs when ELEVENLABS_API_KEY is set (optional ELEVENLABS_VOICE_ID, ELEVENLABS_MODEL),
 # otherwise the offline Piper voices.
@@ -34,10 +35,14 @@ elif [ -z "${SKIP_TTS:-}" ]; then
   fi
 fi
 
-python3 render.py
+if [ "$(python3 -c "import timeline as T; print(T.read_script().get('kind', 'single'))")" = reel ]; then
+  python3 reel.py                  # multi-photo vertical video
+else
+  python3 render.py
+fi
 python3 audio.py
 
-OUT=$(python3 -c "import timeline as T; print(T.OUTPUT)")
+OUT=$(python3 -c "import timeline as T; print(T.output_path())")
 BUILD=$(python3 -c "import timeline as T; print(T.BUILD)")
 mkdir -p output
 ffmpeg -y -loglevel error -i "$BUILD/video_silent.mp4" -i "$BUILD/mix.wav" \
