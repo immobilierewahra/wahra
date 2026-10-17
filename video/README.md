@@ -2,11 +2,29 @@
 
 ## Résidence La Sirène R+6 – vidéo « trend » Tesla
 
-**Résultat :** [`output/sirene_tesla.mp4`](output/sirene_tesla.mp4) — vertical 1080×1920, 15 s, musique + bruitages (sans voix).
-La Tesla garée dans le rendu 3D ([`assets/sirene/residence.jpg`](assets/sirene/residence.jpg)) est détourée, décolle, monte
-la façade étage par étage (compteur RDC → R+6, un « tick » par étage sur le beat) et se pose sur le toit, au-dessus de l'enseigne
-« la Sirène ». Texte : « حتّى تسلا تنجّم زادة تطلع للسطح متاع Résidence La Sirène R+6 ».
-`python3 tesla.py` reconstruit tout (`sirene_plate.py` fait le détourage et reconstruit la rue derrière la voiture).
+**Résultat :** [`output/sirene_tesla.mp4`](output/sirene_tesla.mp4) — vertical 1080×1920, 19 s, voix off arabe motivante
++ sous-titres, musique (le beat « drop » au décollage) et bruitages.
+La Tesla garée dans le rendu 3D ([`assets/sirene/residence.jpg`](assets/sirene/residence.jpg)) est détourée, s'allume
+(réacteurs bleus sous les roues, jets de vapeur), décolle avec un réacteur arrière, monte la façade étage par étage
+(compteur RDC → R+6, chaque étage s'illumine d'un balayage doré au passage, une note par étage sur le beat), fait un
+**360° en l'air**, puis se pose sur le toit : l'enseigne « la Sirène » s'allume comme un néon, flash et confettis dorés.
+Texte : « حتّى تسلا تنجّم زادة تطلع للسطح متاع Résidence La Sirène R+6 ».
+
+| Temps | Voix off | Image |
+|---|---|---|
+| 0,4 s | حتّى تسلا الجديدة… اختارت عنوانها! | plan large, le titre tombe mot par mot |
+| 4,0 s | لأنّ القمّة تستحقّ | décollage, fumée, compteur des étages |
+| 6,1 s | طابقًا بعد طابق… | montée R+1 → R+6 |
+| 7,8 s | طموح بلا حدود! | 360° en l'air |
+| 10,6 s | إقامة La Sirène… هنا تبدأ القمّة! | atterrissage sur le toit, « وصلت للسطح! » |
+| 14,0 s | عنوانك القادم… في الأعلى! | les 3 numéros apparaissent |
+| 16,6 s | اتصلوا بنا الآن! | les numéros pulsent |
+
+`python3 tesla.py` reconstruit tout (`sirene_plate.py` fait le détourage et reconstruit la rue derrière la voiture ;
+`sirene_vo.py` génère la voix off dans `vo_sirene/` — voix de synthèse Piper « kareem », plusieurs prises par phrase,
+Whisper garde la plus intelligible). Pour changer le texte : `LINES` dans `sirene_vo.py`, puis supprimer `vo_sirene/`
+et relancer `python3 tesla.py` (les instants de chaque phrase sont dans `VO_AT` en haut de `tesla.py`).
+Aucun logo Tesla n'est affiché (marque déposée) : seul le mot « تسلا » apparaît dans le texte.
 
 ## Yessine Centre – Radès (bureaux à vendre)
 
@@ -110,4 +128,6 @@ Ensuite `./make.sh 30s` utilise automatiquement ElevenLabs (vitesse 1,15, régla
 * **Nom d'agence** affiché sur la carte finale : « IMMOBILIÈRE WAHRA » — confirmé par la voix off Yessine Centre.
 * **Yessine Centre** : les numéros affichés sont ceux de l'annonce Riadh El Andalous (la voix ne les lit pas) ; l'adresse du site
   web n'étant pas connue, la carte « موقعنا الإلكتروني » affiche le nom de l'agence — à compléter dans `script_yessine.json` (`screen`).
+* **La Sirène** : la voix off est la voix de synthèse `ar_JO-kareem` (même remarque de licence) ; les numéros affichés sont ceux
+  de l'annonce Riadh El Andalous — à modifier dans `SCREEN` en haut de `tesla.py` si besoin.
 * Le portrait est accompagné de la mention « نحن في خدمتكم » (à votre service), sans nom.
