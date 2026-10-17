@@ -1,5 +1,13 @@
 # Vidéos motion design – Immobilière Wahra
 
+## Résidence La Sirène R+6 – vidéo « trend » Tesla
+
+**Résultat :** [`output/sirene_tesla.mp4`](output/sirene_tesla.mp4) — vertical 1080×1920, 15 s, musique + bruitages (sans voix).
+La Tesla garée dans le rendu 3D ([`assets/sirene/residence.jpg`](assets/sirene/residence.jpg)) est détourée, décolle, monte
+la façade étage par étage (compteur RDC → R+6, un « tick » par étage sur le beat) et se pose sur le toit, au-dessus de l'enseigne
+« la Sirène ». Texte : « حتّى تسلا تنجّم زادة تطلع للسطح متاع Résidence La Sirène R+6 ».
+`python3 tesla.py` reconstruit tout (`sirene_plate.py` fait le détourage et reconstruit la rue derrière la voiture).
+
 ## Yessine Centre – Radès (bureaux à vendre)
 
 **Résultat :** [`output/yessine_centre_ar.mp4`](output/yessine_centre_ar.mp4) (+ [`.srt`](output/yessine_centre_ar.srt)) —
