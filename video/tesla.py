@@ -1,14 +1,13 @@
 """Trend video: the Tesla parked in the Résidence La Sirène render lifts off on jets, climbs the façade floor by
-floor, does a 360° flip and lands on the rooftop (R+6). Arabic voice-over, music and sound design.
+floor, does a 360° flip and lands on the rooftop (R+6). Recorded Tunisian voice-over, music and sound design.
 
-python3 tesla.py                -> output/sirene_tesla.mp4  (1080x1920, 19 s)
+python3 tesla.py                -> output/sirene_tesla.mp4  (1080x1920, 16.5 s)
 python3 tesla.py --still 3 6 9  -> build/sirene/preview/still_*.png
 
 The car is cut out of the render (sirene_plate.py -> build/sirene/car_sprite.npy + plate.png, the render
-without the car), then animated over the clean plate. The voice-over lines come from sirene_vo.py (vo_sirene/).
+without the car), then animated over the clean plate. The voice-over is assets/sirene/voix_off.mp3.
 """
 import argparse
-import json
 import math
 import multiprocessing as mp
 import os
@@ -23,10 +22,10 @@ from gfx import ease_back, ease_in, ease_io, ease_out, fade, lerp, place, prog
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BUILD = os.path.join(HERE, "build", "sirene")
-VO_DIR = os.path.join(HERE, "vo_sirene")
+VOICE = os.path.join(HERE, "assets", "sirene", "voix_off.mp3")
 OUT = os.path.join(HERE, "output", "sirene_tesla.mp4")
 W, H, FPS = 1080, 1920, 30
-TOTAL = 19.0
+TOTAL = 16.5
 PANEL_Y, PANEL_H = 520, 900                   # photo window inside the vertical frame
 SW, SH = 1488, 845                            # source render size
 CAR_BOX = (0, 712, 260, 805)                  # where the car sits in the render
@@ -50,8 +49,19 @@ T_FLOOR0 = T_LIFT + 0.6
 T_TOP = T_FLOOR0 + BEAT * 5                   # R+6 reached
 T_SPIN0, T_SPIN1 = 8.0, 8.85
 T_ARRIVE, T_LAND = 9.75, 10.4
-T_INFO = 13.8
-VO_AT = {"hook": 0.35, "power": 4.0, "climb": 6.05, "spin": 7.75, "land": 10.6, "addr": 13.95, "call": 16.6}
+T_INFO = 12.2
+# The recording says "حتّى تسلا جديدة، تنجّم زادة تطلع للسطح | متاع Résidence La Sirène". It is cut in two after
+# "للسطح": the first part rides the take-off ("تطلع", at 3.33 s in the recording, on the lift-off), the second
+# part lands with the car.
+V_CUT = 4.44
+V1 = T_LIFT - 3.33                            # video time of the recording start
+V2 = T_LAND + 0.3 - V_CUT                     # offset of the second part (video time = recording time + V2)
+
+
+def vt(rec):
+    """Video time of a recording time."""
+    return rec + (V1 if rec < V_CUT else V2)
+
 LAND_X = 870
 S_END = 0.5
 A = {}
@@ -156,7 +166,7 @@ def camera(t):
         x, y, s, *_ = car_state(tt - 0.12)
         return (lerp(x, 700, 0.3), y + 40, lerp(1.6, 1.3, prog(tt, T_TOP, T_ARRIVE)))
     keys = [(0.0, (500, 422, 1.0)), (2.0, (520, 440, 1.06)), (3.1, (330, 600, 1.5)), (4.1, follow),
-            (9.4, follow), (10.3, (860, 200, 1.55)), (12.4, (872, 160, 1.85)), (14.8, (800, 300, 1.3)),
+            (9.4, follow), (10.3, (860, 200, 1.55)), (11.7, (872, 165, 1.8)), (13.3, (800, 300, 1.3)),
             (TOTAL, (790, 310, 1.26))]
     for (t0, a), (t1, b) in zip(keys, keys[1:]):
         if t <= t1:
@@ -173,11 +183,6 @@ def window(t):
     x0 = min(max(cx - ww / 2, 0), SW - ww)
     y0 = min(max(cy - wh / 2, 0), SH - wh)
     return x0, y0, W / ww
-
-
-def vo_lines():
-    meta = json.load(open(os.path.join(VO_DIR, "lines.json"), encoding="utf-8"))
-    return [dict(m, start=VO_AT[m["key"]], end=VO_AT[m["key"]] + m["dur"]) for m in meta]
 
 
 # ====================================================================== assets
@@ -264,14 +269,15 @@ def build():
                        v=rng.uniform(900, 1600), a=rng.uniform(0.05, 0.16)) for _ in range(26)]
     f = g.font
     CA, MO, PL = "Cairo.ttf", "Montserrat.ttf", "PlayfairDisplay.ttf"
-    A["cap"] = [
-        [(g.text("حتّى", f(CA, 124, 900), blur=8, shadow=0.9), 0.3),
-         (g.text("تسلا", f(CA, 124, 900), color=TESLA_RED, blur=8, shadow=0.9), 0.5)],
-        [(g.text("تنجّم", f(CA, 84, 900), blur=7, shadow=0.9), 0.85), (g.text("زادة", f(CA, 84, 900), blur=7, shadow=0.9), 1.0),
-         (g.text("تطلع", f(CA, 84, 900), blur=7, shadow=0.9), 1.15),
-         (g.text("للسطح", f(CA, 84, 900), gold=True, blur=7, shadow=0.9), 1.3)],
-        [(g.text("متاع", f(CA, 64, 800), blur=6, shadow=0.9), 1.6),
-         (g.text("Résidence La Sirène R+6", f(MO, 50, 800), gold=True, blur=6, shadow=0.9), 1.75)],
+    A["cap"] = [                              # each word pops when it is spoken (recording times)
+        [(g.text("حتّى", f(CA, 124, 900), blur=8, shadow=0.9), vt(0.04)),
+         (g.text("تسلا", f(CA, 124, 900), color=TESLA_RED, blur=8, shadow=0.9), vt(0.68))],
+        [(g.text("تنجّم", f(CA, 84, 900), blur=7, shadow=0.9), vt(2.40)),
+         (g.text("زادة", f(CA, 84, 900), blur=7, shadow=0.9), vt(2.74)),
+         (g.text("تطلع", f(CA, 84, 900), blur=7, shadow=0.9), vt(3.33)),
+         (g.text("للسطح", f(CA, 84, 900), gold=True, blur=7, shadow=0.9), vt(3.50))],
+        [(g.text("متاع", f(CA, 64, 800), blur=6, shadow=0.9), vt(4.45)),
+         (g.text("Résidence La Sirène R+6", f(MO, 50, 800), gold=True, blur=6, shadow=0.9), vt(4.60))],
     ]
     A["counter_box"] = g.rounded_box(196, 96, 18, alpha=0.82, border="gold", bw=3)
     A["counter"] = [g.text(f"R+{k}", f(MO, 50, 800), gold=True, blur=4) for k in range(0, 7)]
@@ -288,11 +294,6 @@ def build():
     A["ph_text"] = [g.text(n, f(MO, 40, 600), blur=4) for n, _ in SCREEN["phones"]]
     A["agency"] = g.text(SCREEN["agency"], f(MO, 22, 700), gold=True, tracking=8, blur=3)
     A["floor_times"] = floor_times()
-    A["vo"] = vo_lines()
-    A["subs"] = []
-    for L in A["vo"]:
-        t_ = g.text(L["sub"], f(CA, 40, 800), blur=4, shadow=0.8)
-        A["subs"].append((t_, g.rounded_box(t_.cw + 50, 64, 18, alpha=0.62)))
 
 
 def arrow_mask(px):
@@ -489,7 +490,7 @@ def panel(t):
 
 
 def overlay_panel(fr, t, win):
-    """Floor counter, 360° tag, roof tag and voice-over subtitles over the photo window."""
+    """Floor counter, 360° tag and roof tag over the photo window."""
     ft = A["floor_times"]
     n = sum(1 for tt, _ in ft if tt <= t)
     a = fade(t, T_LIFT - 0.3, TOTAL - 0.3, 0.3, 0.3)
@@ -515,12 +516,6 @@ def overlay_panel(fr, t, win):
         sc = lerp(0.4, 1, ease_back(pt))
         place(fr, box, px, y, "mm", a=min(1, pt * 3), scale=sc)
         place(fr, txt, px, y, "mm", a=min(1, pt * 3), scale=sc)
-    for L, (txt, box) in zip(A["vo"], A["subs"]):
-        if L["start"] - 0.2 < t < L["end"] + 0.4:
-            a2 = fade(t, L["start"] - 0.05, L["end"] + 0.25, 0.12, 0.15)
-            y = PANEL_Y + PANEL_H - 62 + 6 * (1 - ease_out(prog(t, L["start"], L["start"] + 0.25)))
-            place(fr, box, W / 2, y, "mm", a=a2)
-            place(fr, txt, W / 2, y - 2, "mm", a=a2)
 
 
 def caption(fr, t):
@@ -555,7 +550,7 @@ def bottom(fr, t):
         bump = 1 + 0.2 * math.exp(-max(0, t - T_LAND) * 6) * (t > T_LAND)
         place(fr, box, bx, 1566, "mm", a=a, scale=bump)
         place(fr, txt, bx, 1566, "mm", a=a, scale=bump)
-    call = VO_AT["call"]
+    call = T_INFO + 1.3
     for k2, ((num, ic), L) in enumerate(zip(SCREEN["phones"], A["ph_text"])):
         p = prog(t, T_INFO + 0.18 * k2, T_INFO + 0.18 * k2 + 0.5)
         if p > 0:
@@ -590,7 +585,6 @@ def frame(t):
 def soundtrack(path):
     import audio as au
     from scipy.ndimage import maximum_filter1d, uniform_filter1d
-    from scipy.signal import resample_poly
     SR = au.SR
     N = int(TOTAL * SR) + SR
     mus, fx, vo = np.zeros((N, 2)), np.zeros((N, 2)), np.zeros(N)
@@ -662,18 +656,20 @@ def soundtrack(path):
     au.add(fx, au.filt(bz, "lowpass", 3000), T_LAND + 0.05, 0.03)
     for row in A["cap"]:
         for _, t0 in row:
-            au.add(fx, au.pop(1300, 800, 0.07), t0, 0.08, pan=0.2)
+            au.add(fx, au.pop(1300, 800, 0.07), t0, 0.05, pan=0.2)
     for k2 in range(3):
         au.add(fx, au.pop(1000, 600), T_INFO + 0.18 * k2, 0.12, pan=0.3)
-    # voice-over (with a little presence) and ducking of the bed under it
-    for L in A["vo"]:
-        x, sr = sf.read(os.path.join(VO_DIR, L["file"]), dtype="float32")
-        gg = math.gcd(SR, sr)
-        y = resample_poly(x, SR // gg, sr // gg)
-        act = np.abs(y) > 0.02 * np.abs(y).max()
-        y = y * 0.13 / np.sqrt(np.mean(y[act] ** 2))
-        i = int(L["start"] * SR)
-        vo[i:i + len(y)] += y[:max(0, N - i)]
+    # recorded voice-over, in two parts (see V_CUT), and ducking of the bed under it
+    rec = np.frombuffer(subprocess.run(["ffmpeg", "-v", "error", "-i", VOICE, "-ac", "1", "-ar", str(SR), "-f", "f32le", "-"],
+                                       capture_output=True, check=True).stdout, np.float32)
+    act = np.abs(rec) > 0.02 * np.abs(rec).max()
+    rec = rec * 0.13 / np.sqrt(np.mean(rec[act] ** 2))
+    c = int(V_CUT * SR)
+    for part, start in ((rec[:c], vt(0)), (rec[c:], vt(V_CUT))):
+        n = np.arange(len(part))
+        part = part * np.minimum(1, np.minimum(n, n[::-1]) / (0.005 * SR))          # 5 ms fades at the cut
+        i = int(round(start * SR))
+        vo[i:i + len(part)] += part[:max(0, N - i)]
     vo = au.filt(vo, "highpass", 90)
     duck = np.clip(uniform_filter1d(np.abs(vo), 2400) / 0.03, 0, 1)
     duck = uniform_filter1d(maximum_filter1d(duck, 4800), 7200)          # hold through short pauses, smooth edges
@@ -712,8 +708,6 @@ def main():
     args = ap.parse_args()
     if not os.path.exists(os.path.join(BUILD, "car_sprite.npy")):
         subprocess.run(["python3", os.path.join(HERE, "sirene_plate.py")], check=True, cwd=HERE)
-    if not os.path.exists(os.path.join(VO_DIR, "lines.json")):
-        subprocess.run(["python3", os.path.join(HERE, "sirene_vo.py")], check=True, cwd=HERE)
     build()
     os.makedirs(os.path.join(BUILD, "preview"), exist_ok=True)
     if args.still:
